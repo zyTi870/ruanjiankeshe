@@ -9,7 +9,7 @@ docx_path = '课设报告-AI器官芯片毒性显微检测平台.docx'
 media_dir = 'media'
 output_html = 'index.html'
 css_file = 'styles.css'
-code_dir_link = 'code' # Relative link
+code_dir_link = 'https://github.com/zyTi870/ruanjiankeshe/tree/main/code' # GitHub link
 
 # Ensure media directory exists
 if os.path.exists(media_dir):
