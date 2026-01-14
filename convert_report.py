@@ -1,13 +1,15 @@
 import os
 import shutil
+import re
 from docx import Document
-from docx.shared import Pt
+from PIL import Image
 
 # Configuration
 docx_path = '课设报告-AI器官芯片毒性显微检测平台.docx'
 media_dir = 'media'
 output_html = 'index.html'
 css_file = 'styles.css'
+code_dir_link = 'code' # Relative link
 
 # Ensure media directory exists
 if os.path.exists(media_dir):
@@ -36,35 +38,38 @@ def save_image_from_rid(doc, run, media_dir):
                         if image_filename.endswith('.jpeg'): image_filename = image_filename.replace('.jpeg', '.jpg')
                         if image_filename.endswith('.x-wmf'): image_filename = image_filename.replace('.x-wmf', '.wmf')
                         
+                        # SKIP image_rId7.jpg
+                        if 'image_rId7.jpg' in image_filename:
+                            continue
+
                         image_path = os.path.join(media_dir, image_filename)
                         
                         # Save content
                         with open(image_path, 'wb') as f:
                             f.write(part.blob)
                         
+                        # Process image_rId8.png
+                        if 'image_rId8.png' in image_filename:
+                            try:
+                                with Image.open(image_path) as img:
+                                    # Rotate 90 degrees (make horizontal if vertical)
+                                    # "横过来" -> Usually rotate -90 (270) or 90
+                                    # Let's rotate -90 (counter-clockwise) which is common for landscape
+                                    img = img.rotate(-90, expand=True)
+                                    
+                                    # Resize "改小一点" - 50%
+                                    width, height = img.size
+                                    new_size = (int(width * 0.5), int(height * 0.5))
+                                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+                                    
+                                    img.save(image_path)
+                            except Exception as e:
+                                print(f"Error processing {image_filename}: {e}")
+
                         saved_images.append(image_filename)
                 except KeyError:
                     print(f"Warning: Could not find part for rId {rId}")
                     pass
-    
-    # Also check for 'pict' (older format images)
-    picts = run.element.xpath('.//w:pict')
-    for pict in picts:
-        imagedatas = pict.xpath('.//v:imagedata')
-        for imagedata in imagedatas:
-            rId = imagedata.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
-            if rId:
-                 try:
-                    part = doc.part.related_parts[rId]
-                    if 'image' in part.content_type:
-                        image_filename = f"image_{rId}.{part.content_type.split('/')[-1]}"
-                        image_path = os.path.join(media_dir, image_filename)
-                        with open(image_path, 'wb') as f:
-                            f.write(part.blob)
-                        saved_images.append(image_filename)
-                 except KeyError:
-                    pass
-
     return saved_images
 
 # Step 1: Read Text and Generate HTML
@@ -83,8 +88,12 @@ html_content.append('</head>')
 html_content.append('<body>')
 html_content.append('<div class="container">')
 
+# Header Information Pattern
+# We'll treat the first few paragraphs (before "课设背景") as header info
+header_mode = True
+header_content = []
+
 # Filter regex for sensitive info
-import re
 sensitive_patterns = [
     r'姓名[:：\s]*[\u4e00-\u9fa5]{2,4}',
     r'学号[:：\s]*\d+',
@@ -92,6 +101,8 @@ sensitive_patterns = [
     r'指导教师[:：].*',
     r'任课教师[:：].*'
 ]
+# Specific text to remove
+remove_text = "请你在最终提交时将路径与脚本名替换为你项目中的真实名称"
 
 def is_sensitive(text):
     for pattern in sensitive_patterns:
@@ -104,6 +115,11 @@ for para in doc.paragraphs:
     # Process text
     text = para.text.strip()
     
+    # Filter specific text
+    if remove_text in text:
+        text = text.replace(remove_text, "")
+        if not text.strip(): continue # Skip if empty after removal
+
     # Skip sensitive info
     if is_sensitive(text):
         continue
@@ -113,14 +129,16 @@ for para in doc.paragraphs:
     tag = 'p'
     if 'Heading 1' in style_name:
         tag = 'h1'
+        header_mode = False # Stop header mode on first H1
     elif 'Heading 2' in style_name:
         tag = 'h2'
+        header_mode = False
     elif 'Heading 3' in style_name:
         tag = 'h3'
     elif 'Heading 4' in style_name:
         tag = 'h4'
     elif 'Title' in style_name:
-        tag = 'h1' # Treat Title as H1
+        tag = 'h1' 
     
     # Check for images in runs
     para_images = []
@@ -128,12 +146,36 @@ for para in doc.paragraphs:
         images = save_image_from_rid(doc, run, media_dir)
         para_images.extend(images)
     
+    # Logic for Header Mode
+    # If text matches typical header info, keep in header mode
+    if header_mode and text:
+        if "课设背景" in text or "1.1" in text:
+            header_mode = False
+        else:
+            # Accumulate header paragraphs
+            # Special styling for specific lines
+            if "AI器官芯片" in text:
+                header_content.append(f'<h1 class="report-title">{text}</h1>')
+            elif "中国农业大学" in text or "课程设计" in text:
+                 header_content.append(f'<div class="header-info-large">{text}</div>')
+            else:
+                 header_content.append(f'<div class="header-info">{text}</div>')
+            continue # Skip adding to main body yet
+
+    # If we just exited header mode, flush header content
+    if not header_mode and header_content:
+        html_content.append('<header class="report-header">')
+        html_content.append('\n'.join(header_content))
+        # Add Code Link
+        html_content.append(f'<div class="code-link"><a href="{code_dir_link}" target="_blank">📂 查看项目完整代码 (Project Code)</a></div>')
+        html_content.append('</header>')
+        header_content = [] # Clear
+
     # If paragraph has text, write it
     if text:
         html_content.append(f'<{tag}>{text}</{tag}>')
     
-    # Insert images immediately after the paragraph (or inside if we wanted, but after is safer for layout)
-    # If the paragraph was empty but had images, they will just appear.
+    # Insert images
     for img in para_images:
         html_content.append(f'<div class="image-container"><img src="{media_dir}/{img}" alt="实验图片" loading="lazy"></div>')
 

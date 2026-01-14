@@ -25,6 +25,56 @@ body {
     box-shadow: 0 10px 25px rgba(0,0,0,0.05);
 }
 
+/* Header Styles */
+.report-header {
+    text-align: center;
+    margin-bottom: 50px;
+    border-bottom: 2px solid #edf2f7;
+    padding-bottom: 30px;
+}
+
+.report-title {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin: 20px 0;
+    line-height: 1.2;
+    border-bottom: none; /* Override default h1 */
+}
+
+.header-info-large {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin: 10px 0;
+}
+
+.header-info {
+    font-size: 1.2rem;
+    color: #4a5568;
+    margin: 5px 0;
+}
+
+.code-link {
+    margin-top: 30px;
+}
+
+.code-link a {
+    display: inline-block;
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.code-link a:hover {
+    background-color: var(--primary-color);
+}
+
+/* Headings */
 h1, h2, h3, h4 {
     color: var(--primary-color);
     margin-top: 1.5em;
@@ -34,10 +84,10 @@ h1, h2, h3, h4 {
 
 h1 {
     font-size: 2.4rem;
-    text-align: center;
+    text-align: left; /* Reset alignment for normal H1s */
     border-bottom: 3px solid var(--accent-color);
     padding-bottom: 20px;
-    margin-top: 0;
+    margin-top: 40px;
 }
 
 h2 {
@@ -79,6 +129,10 @@ img {
         padding: 30px 20px;
     }
     
+    .report-title {
+        font-size: 2rem;
+    }
+
     h1 {
         font-size: 1.8rem;
     }
